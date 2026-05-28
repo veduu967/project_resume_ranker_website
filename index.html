@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResumeIQ — AI Resume Ranker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #111118;
+            --surface2: #1a1a26;
+            --border: #2a2a3a;
+            --accent: #7c6bff;
+            --accent2: #ff6b9d;
+            --accent3: #6bffda;
+            --text: #e8e8f0;
+            --text-muted: #7a7a9a;
+            --green: #22c55e;
+            --blue: #3b82f6;
+            --amber: #f59e0b;
+            --red: #ef4444;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Ambient background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -20%;
+            left: -10%;
+            width: 60%;
+            height: 60%;
+            background: radial-gradient(ellipse, rgba(124, 107, 255, 0.08) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -20%;
+            right: -10%;
+            width: 50%;
+            height: 50%;
+            background: radial-gradient(ellipse, rgba(255, 107, 157, 0.06) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        header {
+            padding: 2.5rem 0 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .logo-text {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .badge {
+            background: rgba(124, 107, 255, 0.15);
+            border: 1px solid rgba(124, 107, 255, 0.3);
+            color: var(--accent);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 0.35rem 0.85rem;
+            border-radius: 100px;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 3rem 0 2.5rem;
+        }
+
+        .hero h1 {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(2.2rem, 5vw, 3.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            color: var(--text-muted);
+            font-size: 1.05rem;
+            font-weight: 300;
+            max-width: 520px;
+            margin: 0 auto;
+            line-height: 1.7;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 2.5rem;
+            padding: 1.5rem 0 2.5rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 2.5rem;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-num {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), var(--accent3));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: 0.05em;
+        }
+
+        /* Main layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 1.75rem;
+            transition: border-color 0.3s;
+        }
+
+        .card:hover { border-color: rgba(124, 107, 255, 0.3); }
+
+        .card-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-label::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            display: inline-block;
+        }
+
+        .card h3 {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+
+        textarea {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 300;
+            padding: 1rem;
+            resize: vertical;
+            min-height: 180px;
+            transition: border-color 0.2s;
+            outline: none;
+            line-height: 1.6;
+        }
+
+        textarea:focus { border-color: var(--accent); }
+
+        textarea::placeholder { color: var(--text-muted); }
+
+        /* Drop zone */
+        .dropzone {
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: var(--surface2);
+            position: relative;
+        }
+
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--accent);
+            background: rgba(124, 107, 255, 0.05);
+        }
+
+        .dropzone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .dropzone-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+            display: block;
+        }
+
+        .dropzone p {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            line-height: 1.6;
+        }
+
+        .dropzone strong {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .file-list {
+            margin-top: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            background: rgba(124, 107, 255, 0.08);
+            border: 1px solid rgba(124, 107, 255, 0.2);
+            border-radius: 10px;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .file-item span { color: var(--text-muted); font-size: 0.78rem; margin-left: auto; }
+
+        /* Rank button */
+        .rank-btn {
+            width: 100%;
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border: none;
+            border-radius: 14px;
+            color: #fff;
+            font-family: 'Syne', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.02em;
+            margin-top: 1.5rem;
+        }
+
+        .rank-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(124, 107, 255, 0.4);
+        }
+
+        .rank-btn:active { transform: translateY(0); }
+
+        .rank-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Loading */
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .loader.active { display: block; }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loader p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Results */
+        #results { display: none; }
+        #results.active { display: block; }
+
+        .results-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .results-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 800;
+        }
+
+        .results-meta {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .download-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.2rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .download-btn:hover {
+            border-color: var(--accent3);
+            color: var(--accent3);
+        }
+
+        /* Resume Cards */
+        .resume-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .resume-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 1.5rem;
+            transition: all 0.3s;
+            animation: fadeUp 0.5s ease both;
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .resume-card:hover {
+            border-color: rgba(124, 107, 255, 0.4);
+            transform: translateX(4px);
+        }
+
+        .resume-card.rank-1 {
+            border-color: rgba(124, 107, 255, 0.5);
+            background: linear-gradient(135deg, rgba(124, 107, 255, 0.08), var(--surface));
+        }
+
+        .card-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .rank-badge {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .rank-1 .rank-badge { background: linear-gradient(135deg, #7c6bff, #ff6b9d); color: white; }
+        .rank-2 .rank-badge { background: rgba(59, 130, 246, 0.2); color: var(--blue); }
+        .rank-3 .rank-badge { background: rgba(245, 158, 11, 0.2); color: var(--amber); }
+
+        .resume-info { flex: 1; }
+
+        .resume-name {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .resume-meta-row {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .score-display {
+            text-align: right;
+        }
+
+        .score-number {
+            font-family: 'Syne', sans-serif;
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .score-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+
+        .rating-pill {
+            display: inline-block;
+            padding: 0.2rem 0.65rem;
+            border-radius: 100px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            margin-top: 0.4rem;
+        }
+
+        /* Score bars */
+        .score-bars {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 540px) {
+            .score-bars { grid-template-columns: 1fr; }
+        }
+
+        .score-bar-item { }
+
+        .score-bar-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+        }
+
+        .score-bar-label span:last-child {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .bar-track {
+            height: 6px;
+            background: var(--surface2);
+            border-radius: 100px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 100px;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Skills */
+        .skills-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.75rem;
+        }
+
+        .skill-tag {
+            padding: 0.25rem 0.65rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: rgba(107, 255, 218, 0.08);
+            border: 1px solid rgba(107, 255, 218, 0.2);
+            color: var(--accent3);
+        }
+
+        .skill-tag.unmatched {
+            background: rgba(122, 122, 154, 0.08);
+            border-color: rgba(122, 122, 154, 0.2);
+            color: var(--text-muted);
+        }
+
+        /* JD skills */
+        .jd-skills-card {
+            margin-bottom: 1.5rem;
+        }
+
+        .jd-skills-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .jd-skill {
+            padding: 0.3rem 0.75rem;
+            border-radius: 100px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            background: rgba(124, 107, 255, 0.1);
+            border: 1px solid rgba(124, 107, 255, 0.25);
+            color: var(--accent);
+        }
+
+        /* Error */
+        .error-box {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            color: var(--red);
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .error-box.active { display: block; }
+
+        footer {
+            text-align: center;
+            padding: 3rem 0 2rem;
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+        }
+
+        .crown { font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <div class="logo">
+            <div class="logo-icon">🧠</div>
+            <span class="logo-text">ResumeIQ</span>
+        </div>
+        <span class="badge">NLP · TF-IDF · SpaCy</span>
+    </header>
+
+    <section class="hero">
+        <h1>Rank Resumes with<br><span>AI Precision</span></h1>
+        <p>Upload resumes, paste a job description, and let NLP score, rank, and surface your best candidates instantly.</p>
+    </section>
+
+    <div class="stats-bar">
+        <div class="stat">
+            <div class="stat-num">4x</div>
+            <div class="stat-label">Scoring Dimensions</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num">TF-IDF</div>
+            <div class="stat-label">Vectorization</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num">SpaCy</div>
+            <div class="stat-label">NLP Engine</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num">CSV</div>
+            <div class="stat-label">HR Export</div>
+        </div>
+    </div>
+
+    <!-- Input Form -->
+    <div class="main-grid">
+        <div class="card">
+            <div class="card-label">Step 1</div>
+            <h3>Job Description</h3>
+            <textarea id="jobDesc" placeholder="Paste the full job description here...&#10;&#10;e.g. We're looking for a Python Backend Engineer with 3+ years experience in Flask, REST APIs, PostgreSQL, Docker, and AWS. Experience with machine learning pipelines is a plus..."></textarea>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Step 2</div>
+            <h3>Upload Resumes (PDF)</h3>
+            <div class="dropzone" id="dropzone">
+                <input type="file" id="resumeInput" multiple accept=".pdf">
+                <span class="dropzone-icon">📄</span>
+                <p><strong>Drop PDFs here</strong> or click to browse<br><small>Multiple files supported · Max 16MB each</small></p>
+            </div>
+            <div class="file-list" id="fileList"></div>
+        </div>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <button class="rank-btn" id="rankBtn" onclick="rankResumes()">
+        ⚡ Analyze &amp; Rank Candidates
+    </button>
+
+    <!-- Loading -->
+    <div class="loader" id="loader">
+        <div class="spinner"></div>
+        <p>Processing resumes with NLP engine...</p>
+    </div>
+
+    <!-- Results -->
+    <div id="results">
+        <div id="jdSkillsCard" class="card jd-skills-card" style="margin-top:2rem;">
+            <div class="card-label">Detected from Job Description</div>
+            <h3>Required Skills</h3>
+            <div class="jd-skills-row" id="jdSkillsList"></div>
+        </div>
+
+        <div class="results-header" style="margin-top:1.5rem;">
+            <div>
+                <div class="results-title">🏆 Candidate Rankings</div>
+                <div class="results-meta" id="resultsMeta"></div>
+            </div>
+            <button class="download-btn" onclick="downloadReport()">
+                ⬇ Download HR Report (CSV)
+            </button>
+        </div>
+
+        <div class="resume-cards" id="resumeCards"></div>
+    </div>
+
+    <footer>
+        ResumeIQ · Built with Flask · SpaCy · scikit-learn · TF-IDF Cosine Similarity
+    </footer>
+</div>
+
+<script>
+    let rankingData = null;
+
+    // Drag & Drop
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('resumeInput');
+    const fileList = document.getElementById('fileList');
+
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        fileInput.files = e.dataTransfer.files;
+        updateFileList();
+    });
+
+    fileInput.addEventListener('change', updateFileList);
+
+    function updateFileList() {
+        fileList.innerHTML = '';
+        Array.from(fileInput.files).forEach(file => {
+            const size = (file.size / 1024).toFixed(0);
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            item.innerHTML = `📄 ${file.name} <span>${size} KB</span>`;
+            fileList.appendChild(item);
+        });
+    }
+
+    async function rankResumes() {
+        const jd = document.getElementById('jobDesc').value.trim();
+        const files = fileInput.files;
+        const errorBox = document.getElementById('errorBox');
+        errorBox.classList.remove('active');
+
+        if (!jd) { showError('Please paste a job description.'); return; }
+        if (!files.length) { showError('Please upload at least one PDF resume.'); return; }
+
+        const formData = new FormData();
+        formData.append('job_description', jd);
+        Array.from(files).forEach(f => formData.append('resumes', f));
+
+        document.getElementById('rankBtn').disabled = true;
+        document.getElementById('loader').classList.add('active');
+        document.getElementById('results').classList.remove('active');
+
+        try {
+            const res = await fetch('/rank', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (data.error) { showError(data.error); return; }
+
+            rankingData = data;
+            renderResults(data);
+        } catch (e) {
+            showError('Server error. Make sure the Flask app is running.');
+        } finally {
+            document.getElementById('rankBtn').disabled = false;
+            document.getElementById('loader').classList.remove('active');
+        }
+    }
+
+    function showError(msg) {
+        const box = document.getElementById('errorBox');
+        box.textContent = '⚠ ' + msg;
+        box.classList.add('active');
+        document.getElementById('loader').classList.remove('active');
+        document.getElementById('rankBtn').disabled = false;
+    }
+
+    function renderResults(data) {
+        // JD Skills
+        const jdSkillsList = document.getElementById('jdSkillsList');
+        jdSkillsList.innerHTML = data.jd_skills.length
+            ? data.jd_skills.map(s => `<span class="jd-skill">${s}</span>`).join('')
+            : '<span style="color:var(--text-muted);font-size:0.85rem">No specific tech skills detected</span>';
+
+        document.getElementById('resultsMeta').textContent =
+            `${data.total} candidate${data.total !== 1 ? 's' : ''} analyzed · ${data.timestamp}`;
+
+        // Cards
+        const container = document.getElementById('resumeCards');
+        container.innerHTML = '';
+
+        data.results.forEach((r, idx) => {
+            const delay = idx * 0.1;
+            const colorMap = { 'Excellent': '#22c55e', 'Good': '#3b82f6', 'Average': '#f59e0b', 'Below Average': '#ef4444' };
+            const color = colorMap[r.rank_label] || '#7a7a9a';
+            const crown = r.rank === 1 ? '👑 ' : '';
+
+            const matchedSet = new Set(r.matched_skills);
+            const skillsHtml = r.all_skills.map(s =>
+                `<span class="skill-tag ${matchedSet.has(s) ? '' : 'unmatched'}">${s}</span>`
+            ).join('');
+
+            const bars = [
+                { label: 'TF-IDF Similarity', val: r.tfidf_score, color: '#7c6bff' },
+                { label: 'Keyword Match', val: r.keyword_score, color: '#ff6b9d' },
+                { label: 'Skill Match', val: r.skill_score, color: '#6bffda' },
+                { label: 'Experience', val: r.experience_score, color: '#f59e0b' }
+            ];
+
+            const barsHtml = bars.map(b => `
+                <div class="score-bar-item">
+                    <div class="score-bar-label">
+                        <span>${b.label}</span>
+                        <span>${b.val.toFixed(1)}%</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width:0%;background:${b.color}" data-width="${b.val}"></div>
+                    </div>
+                </div>
+            `).join('');
+
+            const rankClass = r.rank <= 3 ? `rank-${r.rank}` : '';
+            const card = document.createElement('div');
+            card.className = `resume-card ${rankClass}`;
+            card.style.animationDelay = `${delay}s`;
+            card.innerHTML = `
+                <div class="card-top">
+                    <div class="rank-badge">${r.rank}</div>
+                    <div class="resume-info">
+                        <div class="resume-name">${crown}${r.filename}</div>
+                        <div class="resume-meta-row">
+                            <span>🎓 ${r.education}</span>
+                            <span>⏱ ${r.experience_years} yr${r.experience_years !== 1 ? 's' : ''} exp</span>
+                            <span>🔧 ${r.matched_skills.length} skills matched</span>
+                        </div>
+                    </div>
+                    <div class="score-display">
+                        <div class="score-number" style="color:${color}">${r.final_score.toFixed(1)}</div>
+                        <div class="score-label">/ 100 score</div>
+                        <div class="rating-pill" style="background:${color}22;color:${color};border:1px solid ${color}44">${r.rank_label}</div>
+                    </div>
+                </div>
+                <div class="score-bars">${barsHtml}</div>
+                ${r.all_skills.length ? `<div class="skills-row">${skillsHtml}</div>` : ''}
+            `;
+            container.appendChild(card);
+        });
+
+        document.getElementById('results').classList.add('active');
+
+        // Animate bars after render
+        setTimeout(() => {
+            document.querySelectorAll('.bar-fill').forEach(bar => {
+                bar.style.width = bar.dataset.width + '%';
+            });
+        }, 100);
+    }
+
+    async function downloadReport() {
+        if (!rankingData) return;
+        const jd = document.getElementById('jobDesc').value.trim();
+        const jobTitle = jd.split('\n')[0].substring(0, 60) || 'Position';
+
+        const res = await fetch('/download_report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ results: rankingData.results, job_title: jobTitle })
+        });
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `resume_ranking_${Date.now()}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+</script>
+</body>
+</html>
